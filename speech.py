@@ -49,8 +49,30 @@ class xtts_wrapper():
 class parler_tts():
     def __init__(self, model_name, device):
         self.model_name = model_name
-        self.model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+        if "mps:0" in device:
+            if not torch.backends.mps.is_available():
+                if not torch.backends.mps.is_built():
+                    print("MPS not available because the current PyTorch install was not "
+                        "built with MPS enabled.")
+                else:
+                    print("MPS not available because the current MacOS version is not 12.3+ "
+                        "and/or you do not have an MPS-enabled device on this machine.")
+            
+            torch.use_gpu = False
+            device = torch.device("mps:0" if torch.backends.mps.is_available() else "cpu")
+            
+            if torch.backends.mps.is_available():
+                print("Generating TTS using MPS...")
+                device_type = torch.bfloat16
+                self.model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device, dtype=device_type)
+            else:
+                print("Generating TTS using CPU...")
+                print("Could not generate TTS as torch is not compiled with MPS support")
+        else:  
+            device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+            self.model = ParlerTTSForConditionalGeneration.from_pretrained(model_name).to(device)
 
     def tts(self, text, description):
         input_ids = self.tokenizer(description, return_tensors="pt").input_ids.to(self.model.device)
