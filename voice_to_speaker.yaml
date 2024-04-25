@@ -23,6 +23,9 @@
   shimmer:
     model: voices/en_US-libritts_r-medium.onnx
     speaker: 163
+  vctk5:
+    model: voices/en_GB-vctk-medium.onnx
+    speaker: 5
 tts-1-hd:
   alloy: 
     model: xtts
