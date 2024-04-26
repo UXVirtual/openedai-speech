@@ -138,6 +138,22 @@ with client.audio.speech.with_streaming_response.create(
   response.stream_to_file("speech.mp3")
 ```
 
+Or if using [open-webui](https://github.com/open-webui/open-webui) as a local LLM frontend for Ollama, when both are running on your PC:
+
+1. Start the `open-webui` docker container [as per their instructions](https://github.com/open-webui/open-webui?tab=readme-ov-file#quick-start-with-docker-)
+
+2. Open your web browser to http://localhost:3000/
+
+3. Go to *Profile -> Settings -> Audio*
+
+4. Set the *API Base URL* to `http://host.docker.internal:8000/v1`. This allows `open-webui` access to `localhost` on your PC from inside the Docker container.
+
+5. Set *API Key* to `sk-111111111`.
+
+6. Click *Save*
+
+7. Click the *Read Aloud* below any response during a chat session to hear the response.
+
 Also see the `say.py` sample application for an example of how to use the openai-python API.
 
 ```
