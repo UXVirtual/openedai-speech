@@ -83,7 +83,7 @@ class GenerateSpeechRequest(BaseModel):
     model: str = "tts-1" # or "tts-1-hd"
     input: str
     voice: str = "alloy"  # alloy, echo, fable, onyx, nova, and shimmer
-    response_format: str = "mp3" # mp3, opus, aac, flac
+    response_format: str = "mp3" # mp3, opus, aac, flac, wav
     speed: float = 1.0 # 0.25 - 4.0
 
 def build_ffmpeg_args(response_format, input_format, sample_rate):
@@ -92,7 +92,7 @@ def build_ffmpeg_args(response_format, input_format, sample_rate):
         ffmpeg_args = ["ffmpeg", "-loglevel", "error", "-f", "s16le", "-ar", sample_rate, "-ac", "1", "-i", "-"]
     else:
         ffmpeg_args = ["ffmpeg", "-loglevel", "error", "-f", "WAV", "-i", "-"]
-    
+
     if response_format == "mp3":
         ffmpeg_args.extend(["-f", "mp3", "-c:a", "libmp3lame", "-ab", "64k"])
     elif response_format == "opus":
@@ -122,6 +122,8 @@ async def generate_speech(request: GenerateSpeechRequest):
         media_type = "audio/aac"
     elif response_format == "flac":
         media_type = "audio/x-flac"
+    elif response_format == "wav":
+        media_type = "audio/wav"
 
     ffmpeg_args = None
     tts_io_out = None
@@ -129,7 +131,11 @@ async def generate_speech(request: GenerateSpeechRequest):
     # Use piper for tts-1, and if xtts_device == none use for all models.
     if model == 'tts-1' or args.xtts_device == 'none':
         piper_model, speaker = map_voice_to_speaker(voice, 'tts-1')
-        tts_args = ["piper", "--model", str(piper_model), "--data-dir", "voices", "--download-dir", "voices", "--output-raw"]
+        if(response_format == "wav"):
+            tts_args = ["piper", "--model", str(piper_model), "--data-dir", "voices", "--download-dir", "voices"]
+        else:
+            tts_args = ["piper", "--model", str(piper_model), "--data-dir", "voices", "--download-dir", "voices", "--output-raw"]
+
         if args.piper_cuda:
             tts_args.extend(["--cuda"])
         if speaker:
@@ -181,12 +187,15 @@ async def generate_speech(request: GenerateSpeechRequest):
 
             tts_io_out = xtts.tts(text=input_text, speaker_wav=speaker, speed=speed)
 
-    # Pipe the output from piper/xtts to the input of ffmpeg
-    ffmpeg_args.extend(["-"])
-    ffmpeg_proc = subprocess.Popen(ffmpeg_args, stdin=tts_io_out, stdout=subprocess.PIPE)
+    if(response_format == "wav"):
+        # Send the TTS wav output
+        return StreamingResponse(content=tts_io_out, media_type=media_type)
+    else:
+        # Pipe the output from piper/xtts to the input of ffmpeg
+        ffmpeg_args.extend(["-"])
+        ffmpeg_proc = subprocess.Popen(ffmpeg_args, stdin=tts_io_out, stdout=subprocess.PIPE)
 
-    return StreamingResponse(content=ffmpeg_proc.stdout, media_type=media_type)
-
+        return StreamingResponse(content=ffmpeg_proc.stdout, media_type=media_type)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
